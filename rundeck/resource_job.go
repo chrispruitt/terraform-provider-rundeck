@@ -60,6 +60,13 @@ func resourceRundeckJob() *schema.Resource {
 			"retry": {
 				Type:     schema.TypeString,
 				Optional: true,
+				Default:  0,
+			},
+
+			"delay": {
+				Type:     schema.TypeString,
+				Optional: true,
+				Default:  "0",
 			},
 
 			"max_thread_count": {
@@ -595,7 +602,10 @@ func jobFromResourceData(d *schema.ResourceData) (*JobDetail, error) {
 		TimeZone:                  d.Get("time_zone").(string),
 		LogLevel:                  d.Get("log_level").(string),
 		AllowConcurrentExecutions: d.Get("allow_concurrent_executions").(bool),
-		Retry:                     d.Get("retry").(string),
+		Retry: &JobRetry{
+			Value: d.Get("retry").(string),
+			Delay: d.Get("delay").(string),
+		},
 		Dispatch: &JobDispatch{
 			MaxThreadCount:          d.Get("max_thread_count").(int),
 			ContinueNextNodeOnError: d.Get("continue_next_node_on_error").(bool),
@@ -817,8 +827,21 @@ func jobToResourceData(job *JobDetail, d *schema.ResourceData) error {
 	if err := d.Set("allow_concurrent_executions", job.AllowConcurrentExecutions); err != nil {
 		return err
 	}
-	if err := d.Set("retry", job.Retry); err != nil {
-		return err
+
+	if job.Retry != nil {
+		if err := d.Set("retry", job.Retry.Value); err != nil {
+			return err
+		}
+		if err := d.Set("delay", job.Retry.Delay); err != nil {
+			return err
+		}
+	} else {
+		if err := d.Set("retry", "0"); err != nil {
+			return err
+		}
+		if err := d.Set("delay", "0"); err != nil {
+			return err
+		}
 	}
 
 	if job.Dispatch != nil {
@@ -965,7 +988,6 @@ func jobToResourceData(job *JobDetail, d *schema.ResourceData) error {
 
 	return nil
 }
-
 func JobScheduleFromResourceData(d *schema.ResourceData, job *JobDetail) error {
 	const scheduleKey = "schedule"
 	cronSpec := d.Get(scheduleKey).(string)
@@ -974,6 +996,7 @@ func JobScheduleFromResourceData(d *schema.ResourceData, job *JobDetail) error {
 		if len(schedule) != 7 {
 			return fmt.Errorf("the Rundeck schedule must be formatted like a cron expression, as defined here: http://www.quartz-scheduler.org/documentation/quartz-2.2.x/tutorials/tutorial-lesson-06.html")
 		}
+
 		job.Schedule = &JobSchedule{
 			Time: JobScheduleTime{
 				Seconds: schedule[0],
@@ -991,6 +1014,7 @@ func JobScheduleFromResourceData(d *schema.ResourceData, job *JobDetail) error {
 				Year: schedule[6],
 			},
 		}
+
 		// Day-of-month and Day-of-week can both be asterisks, but otherwise one, and only one, must be a '?'
 		if job.Schedule.Month.Day == job.Schedule.WeekDay.Day {
 			if job.Schedule.Month.Day != "*" {
@@ -998,6 +1022,11 @@ func JobScheduleFromResourceData(d *schema.ResourceData, job *JobDetail) error {
 			}
 		} else if job.Schedule.Month.Day != "?" && job.Schedule.WeekDay.Day != "?" {
 			return fmt.Errorf("invalid '%s' specification %s - one of day-of-month (4th item) or day-of-week (6th) must be '?'", scheduleKey, cronSpec)
+		}
+
+		// If day-of-month is ?, it should be omitted from the request
+		if job.Schedule.Month.Day == "?" {
+			job.Schedule.Month.Day = ""
 		}
 	}
 	return nil

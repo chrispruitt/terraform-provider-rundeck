@@ -68,7 +68,7 @@ type JobDetail struct {
 	CommandSequence           *JobCommandSequence `xml:"sequence,omitempty"`
 	Notification              *JobNotification    `xml:"notification,omitempty"`
 	Timeout                   string              `xml:"timeout,omitempty"`
-	Retry                     string              `xml:"retry,omitempty"`
+	Retry                     *JobRetry           `xml:"retry,omitempty"`
 	NodeFilter                *JobNodeFilter      `xml:"nodefilters,omitempty"`
 
 	/* If Dispatch is enabled, nodesSelectedByDefault is always present with true/false.
@@ -121,7 +121,7 @@ type JobSchedule struct {
 
 type JobScheduleMonth struct {
 	XMLName xml.Name `xml:"month"`
-	Day     string   `xml:"day,attr"`
+	Day     string   `xml:"day,attr,omitempty"`
 	Month   string   `xml:"month,attr"`
 }
 
@@ -132,7 +132,7 @@ type JobScheduleYear struct {
 
 type JobScheduleWeekDay struct {
 	XMLName xml.Name `xml:"weekday"`
-	Day     string   `xml:"day,attr"`
+	Day     string   `xml:"day,attr,omitempty"`
 }
 
 type JobScheduleTime struct {
@@ -140,6 +140,12 @@ type JobScheduleTime struct {
 	Hour    string   `xml:"hour,attr"`
 	Minute  string   `xml:"minute,attr"`
 	Seconds string   `xml:"seconds,attr"`
+}
+
+type JobRetry struct {
+	XMLName xml.Name `xml:"retry"`
+	Delay   string   `xml:"delay,attr,omitempty"`
+	Value   string   `xml:",chardata"`
 }
 
 type jobDetailList struct {
